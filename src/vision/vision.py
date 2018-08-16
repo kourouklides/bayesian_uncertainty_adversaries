@@ -1,22 +1,24 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
+
 import argparse
 import math
-import matplotlib.pyplot as plt
 import os
-import pandas as pd
-import numpy as np
-from tqdm import tqdm
 import time
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torchvision import datasets, transforms
 from torch.autograd import Variable
-from src.utils import utility_funcs as uf
-from src.vision.model import LeNet_standard, LeNet_dropout
+from torchvision import datasets, transforms
+from tqdm import tqdm
 
+from src.adversaries.adversaries import Adversary
+from src.utils import utility_funcs as uf
+from src.vision.models import LeNetStandard, LeNetDropout, KNN
 torch.manual_seed(123)
 
 
@@ -53,6 +55,7 @@ def build_parser():
 def action_args(args):
     """
     Make GPU specific changes based upon the system's setup and the user's arguments.
+
     :param args: Argparser containing desired arguments.
     :return: Set of kwargs.
     """
@@ -87,6 +90,31 @@ def load_data(args, kwargs):
     return train_loader, test_loader
 
 
+def load_numpy():
+    train_loader = torch.utils.data.DataLoader(
+        datasets.MNIST('../data', train=True, download=True,
+                       transform=transforms.Compose([
+                           transforms.ToTensor(),
+                           transforms.Normalize((0.1307,), (0.3081,))
+                       ])),
+        batch_size=1, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(
+        datasets.MNIST('../data', train=False, transform=transforms.Compose([
+                           transforms.ToTensor(),
+                           transforms.Normalize((0.1307,), (0.3081,))
+                       ])),
+        batch_size=1, shuffle=True)
+    train_data, train_label, test_data, test_label = [], [], [], []
+    for data, target in tqdm(train_loader, desc='Building Training NumPy Array'):
+        train_data.append(data.reshape((784)).numpy())
+        train_label.append(target.item())
+    for data, target in tqdm(test_loader, desc='Building Testing NumPy Array'):
+        test_data.append(data.reshape((784)).numpy())
+        test_label.append(target.item())
+    return np.stack(train_data), np.array(train_label), np.stack(test_data), np.array(test_label)
+
+
+
 def train(model, opt, epoch, args, train_loader):
     """
     Train a model.
@@ -103,7 +131,7 @@ def train(model, opt, epoch, args, train_loader):
     model.train()
     lr = args.lr * (0.1 ** (epoch // 10))
     opt.param_groups[0]['lr'] = lr
-    for batch_idx, (data, target) in enumerate(tqdm(train_loader, desc='Batching Training Data')):
+    for batch_idx, (data, target) in enumerate(train_loader):
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         data, target = Variable(data), Variable(target)
@@ -171,6 +199,7 @@ def mcdropout_test(model, args, test_loader, stochastic_passes=100):
             output_list = []
             for i in range(stochastic_passes):
                 output_list.append(torch.unsqueeze(model(data), 0))
+            # Calculate the predic
             output_mean = torch.cat(output_list, 0).mean(0)
             test_loss += F.nll_loss(F.log_softmax(output_mean, 0), target, reduction="sum").item()  # sum up batch loss
             pred = output_mean.data.max(1, keepdim=True)[1]  # get the index of the max log-probability
@@ -291,57 +320,6 @@ def fgsm_test_mc(model, adversary, args, test_loader, epsilon=1.0):
     results_df.to_csv('results/fgsm_{}_bnn.csv'.format(epsilon), index=False)
 
 
-class Adversary:
-    def __init__(self, model, epsilon, limits = (-1, 1)):
-        self.net = model
-        self.eps = 0.9
-        self.lim = limits
-        self.cost = nn.CrossEntropyLoss()
-        self.counter = 0
-        uf.box_print('Creating Adversaries with Epsilon = {}'.format(self.eps))
-
-    def fgsm(self, x, y):
-        # Initalise adversary
-        adv = x.clone()
-        adv = torch.tensor(adv.data, requires_grad=True)
-
-        # Make initial prediction
-        pred = self.net(adv)
-
-        # Calculate loss value
-        loss = self.cost(pred, y)
-
-        # Reset gradients
-        self.net.zero_grad()
-        if adv.grad is not None:
-            adv.grad.data.fill_(0)
-
-
-        # Get gradient
-        loss.backward()
-
-        # Get sign
-        adv.grad.sign_()
-
-        # Calculate perturbation
-        eta = self.eps*adv.grad
-
-        # Perturb image
-        eta = self.eps*torch.sign(x.data)
-        adv = adv - eta
-        adv = torch.clamp(adv, self.lim[0], self.lim[1])
-
-        # New prediction
-        original_logit = self.net(x)
-        adv_pred_logit = self.net(adv)
-        _, original = original_logit.max(-1)
-        _, adv_pred = adv_pred_logit.max(-1)
-
-        if adv_pred != original:
-            # print('{}\nOriginal: {}\nAdversary:{}'.format('-'*80, original.item(), adv_pred.item()))
-            self.counter += 1
-        return adv
-
 def main():
     args = build_parser()
     kwargs = action_args(args)
@@ -350,8 +328,8 @@ def main():
     torch.set_default_tensor_type(dtype)
 
     train_loader, test_loader = load_data(args, kwargs)
-    model_standard = LeNet_standard()
-    model_dropout = LeNet_dropout()
+    model_standard = LeNetStandard()
+    model_dropout = LeNetDropout()
     if args.cuda:
         model_standard.cuda()
         model_dropout.cuda()
@@ -419,6 +397,13 @@ def main():
         model_dropout.load_state_dict(ckpt_dropout['state_dict'])
         adv = Adversary(model_dropout, args.fgsmeps)
         fgsm_test_mc(model_dropout, adv, args, test_loader, epsilon=0.5)
+
+    elif args.mode == 5:
+        X_train, y_train, X_test, y_test = load_numpy()
+        knn_model =  KNN(10)
+        knn_model.fit(X_train, y_train)
+        acc = knn_model.predict(X_test, y_test)
+        print('KNN Accuracy: {}'.format(acc))
 
     else:
         print('--mode argument is invalid \ntrain mode (0) or test mode (1) uncertainty test mode (2)')

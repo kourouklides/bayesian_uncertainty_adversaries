@@ -29,8 +29,8 @@ def experiment_parser():
     vision_parser = subparser.add_parser('vision', help='Run vision experiments.')
     vision_parser.add_argument('--task', default=0, type=int)
     vision_parser.add_argument('-m', '--mode', help='Which experiment to run: \nTraining (0) \nCNN vs. BCNN (1)'
-                                                    '\nMNIST Rotation (2) \nFGSM Adversary(3)', default=3,
-                               type=int, choices=[0, 1, 2, 3], required=True)
+                                                    '\nMNIST Rotation (2) \nFGSM Adversary(3), KNN (5)', default=3,
+                               type=int, choices=[0, 1, 2, 3, 4, 5], required=True)
     vision_parser.add_argument('-f', '--fgsmepsilon', help='Value of epsilon for crafting adversaries.',
                                type=fgsm_float, required=False, default=0.1)
     vision_parser.add_argument('-e', '--epochs', help='Number of epochs to train the CNN and BCNN for.', type=int,
@@ -119,3 +119,6 @@ def gpu_setup(status=False):
         bend = False
         dtype = 'torch.FloatTensor'
     return bend, dtype
+
+def dataloader_to_numpy(dataloader_obj):
+    pass

@@ -23,3 +23,12 @@ Alternatively, a DQN has been trained to play FlappyBird with the effects of adv
    :maxdepth: 2
 
    rl
+
+Adversaries
+-----------------------------------------------------
+Adversarial attacks are carried out typically using Fast Gradient Sign Metho
+
+.. toctree::
+   :maxdepth: 2
+
+   adversary

@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Overview: module code &mdash; Adversary Detection Using Bayesian Approximations  documentation</title>
+  <title>defenses &mdash; Adversary Detection Using Bayesian Approximations  documentation</title>
   
 
   
@@ -130,7 +130,9 @@
     
       <li><a href="../index.html">Docs</a> &raquo;</li>
         
-      <li>Overview: module code</li>
+          <li><a href="index.html">Module code</a> &raquo;</li>
+        
+      <li>defenses</li>
     
     
       <li class="wy-breadcrumbs-aside">
@@ -145,10 +147,52 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
-  <h1>All modules for which code is available</h1>
-<ul><li><a href="defenses.html">defenses</a></li>
-<li><a href="vision.html">vision</a></li>
-</ul>
+  <h1>Source code for defenses</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+
+
+<div class="viewcode-block" id="bit_squeeze"><a class="viewcode-back" href="../adversary.html#defenses.bit_squeeze">[docs]</a><span class="k">def</span> <span class="nf">bit_squeeze</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">bits</span><span class="o">=</span><span class="mi">7</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Implementation of colour bit squeezing.</span>
+
+<span class="sd">    :param x: Original image</span>
+<span class="sd">    :type x: NumPy Array</span>
+<span class="sd">    :param bits: The number of bits to reduce the image too</span>
+<span class="sd">    :type bits: int</span>
+<span class="sd">    :return: Squeezed image</span>
+<span class="sd">    :rtype: NumPy Array</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># 2^i -1</span>
+    <span class="nb">bytes</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="n">bits</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span>
+
+    <span class="c1"># Multiply and round</span>
+    <span class="n">intermediate</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">x</span><span class="o">*</span><span class="nb">bytes</span><span class="p">))</span>
+
+    <span class="c1"># Rescale</span>
+    <span class="n">x_squeezed</span> <span class="o">=</span> <span class="n">intermediate</span><span class="o">/</span><span class="nb">bytes</span>
+    <span class="k">return</span> <span class="n">x_squeezed</span></div>
+
+
+<div class="viewcode-block" id="bit_squeeze_torch"><a class="viewcode-back" href="../adversary.html#defenses.bit_squeeze_torch">[docs]</a><span class="k">def</span> <span class="nf">bit_squeeze_torch</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">bits</span><span class="o">=</span><span class="mi">7</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Perform bit squeezing on a torch array which will be of shape [n, 1, w, h] for a batch of n images</span>
+
+<span class="sd">    :param x: Tensor of images</span>
+<span class="sd">    :type x: Tensor</span>
+<span class="sd">    :param bits: Bits for which images should be scaled to</span>
+<span class="sd">    :type bits: 7</span>
+<span class="sd">    :return: Tensor of squeezed bits</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nb">bytes</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="n">bits</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span>
+
+    <span class="c1"># Multiply and round</span>
+    <span class="n">intermediate</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">mul</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">))</span>
+
+    <span class="c1"># Rescale</span>
+    <span class="n">x_squeezed</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">div</span><span class="p">(</span><span class="n">intermediate</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">x_squeezed</span></div>
+</pre></div>
 
            </div>
            
