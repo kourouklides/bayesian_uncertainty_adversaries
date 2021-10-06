@@ -1,5 +1,7 @@
 # Using Bayesian Deep Learning Approximations to Detect Adversaries in Computer Vision and Reinforcement Learning Tasks
 
+**Note:** This is a fork of the original repository (now deleted) by the GitHub user [thomaspinder](https://github.com/thomaspinder).
+
 ## Contents
  
   * [What Is This All About?](#what-is-this-all-about-)
